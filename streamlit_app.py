@@ -94,22 +94,39 @@ with st.sidebar:
     st.title("💊 Pharmacy KPI")
     st.divider()
     
-    data_source = st.radio("Data source", ["Upload CSV", "Google Sheet URL"], index=0)
-    
     df = None
-    if data_source == "Upload CSV":
-        uploaded = st.file_uploader("Upload tblRaw CSV", type=['csv'])
-        if uploaded:
-            df = load_csv(uploaded)
-    else:
-        sheet_url = st.text_input("Google Sheet URL", placeholder="https://docs.google.com/spreadsheets/d/...")
-        sheet_name = st.text_input("Sheet tab name", value="tblRaw")
-        if sheet_url:
+    has_secrets = hasattr(st, 'secrets') and 'sheet_url' in st.secrets
+    
+    if has_secrets:
+        # Auto-load from secrets
+        data_source = st.radio("Data source", ["Google Sheet (auto)", "Upload CSV"], index=0)
+        if data_source == "Google Sheet (auto)":
             try:
+                sheet_url = st.secrets["sheet_url"]
+                sheet_name = st.secrets.get("sheet_name", "tblRaw")
                 df = load_from_gsheet(sheet_url, sheet_name)
-                st.success("✓ Connected")
+                st.success("✓ Connected via secrets")
             except Exception as e:
                 st.error(f"Connection failed: {e}")
+        else:
+            uploaded = st.file_uploader("Upload tblRaw CSV", type=['csv'])
+            if uploaded:
+                df = load_csv(uploaded)
+    else:
+        data_source = st.radio("Data source", ["Upload CSV", "Google Sheet URL"], index=0)
+        if data_source == "Upload CSV":
+            uploaded = st.file_uploader("Upload tblRaw CSV", type=['csv'])
+            if uploaded:
+                df = load_csv(uploaded)
+        else:
+            sheet_url = st.text_input("Google Sheet URL", placeholder="https://docs.google.com/spreadsheets/d/...")
+            sheet_name = st.text_input("Sheet tab name", value="tblRaw")
+            if sheet_url:
+                try:
+                    df = load_from_gsheet(sheet_url, sheet_name)
+                    st.success("✓ Connected")
+                except Exception as e:
+                    st.error(f"Connection failed: {e}")
 
 if df is None:
     st.title("Pharmacy Group KPI Dashboard")
