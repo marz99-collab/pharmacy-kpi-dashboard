@@ -752,387 +752,226 @@ st.divider()
 st.caption(f"Data: {len(df)} rows · {len(stores)} stores · {periods[0].strftime('%b %Y')} to {periods[-1].strftime('%b %Y')} · Last loaded: {datetime.now().strftime('%H:%M %d/%m/%Y')}")
 
 
+
 # ═══════════════════════════════════════════════════════════════
 #  FLOATING CHAT WIDGET
+#  Uses components.html with a full-viewport transparent iframe.
+#  pointer-events:none on the iframe body means clicks pass through
+#  to the dashboard below — only the bubble + panel are clickable.
 # ═══════════════════════════════════════════════════════════════
 import streamlit.components.v1 as components
 
-_current_period = period_labels[sel_period]
+_ctx = period_labels[sel_period]
 
-_chat_html = """
-<!DOCTYPE html><html><head>
+_widget = f"""<!DOCTYPE html>
+<html>
+<head>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap');
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'IBM Plex Sans',sans-serif;background:transparent;overflow:hidden;}
-#chat-bubble{position:fixed;bottom:24px;right:24px;width:52px;height:52px;background:#0ea5e9;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(14,165,233,.45);z-index:9999;transition:all .2s;border:none;}
-#chat-bubble:hover{background:#38bdf8;transform:scale(1.08);}
-#chat-bubble svg{width:24px;height:24px;fill:white;}
-#bubble-badge{position:absolute;top:-2px;right:-2px;width:14px;height:14px;background:#22c55e;border-radius:50%;border:2px solid #0f172a;animation:pb 2s infinite;}
-@keyframes pb{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.7;transform:scale(1.15);}}
-#chat-panel{position:fixed;bottom:88px;right:24px;width:380px;height:520px;background:#0d1117;border:1px solid #1e3a5f;border-radius:12px;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.6);z-index:9998;overflow:hidden;animation:su .22s ease;}
-#chat-panel.open{display:flex;}
-@keyframes su{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
-#panel-header{background:#0f1923;padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #1e3a5f;flex-shrink:0;}
-.hdot{width:8px;height:8px;background:#22c55e;border-radius:50%;box-shadow:0 0 6px #22c55e;animation:pb 2s infinite;flex-shrink:0;}
-#panel-header h3{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#e2e8f0;font-weight:500;flex:1;}
-.cpill{font-family:'IBM Plex Mono',monospace;font-size:9px;background:rgba(14,165,233,.12);color:#38bdf8;padding:2px 8px;border-radius:10px;border:1px solid rgba(14,165,233,.2);}
-#close-btn{background:none;border:none;color:#475569;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;transition:color .15s;}
-#close-btn:hover{color:#94a3b8;}
-#messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth;}
-#messages::-webkit-scrollbar{width:3px;}
-#messages::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:2px;}
-.mr{display:flex;flex-direction:column;max-width:90%;animation:fi .18s ease;}
-@keyframes fi{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
-.mr.user{align-self:flex-end;align-items:flex-end;}
-.mr.ai{align-self:flex-start;align-items:flex-start;}
-.mlbl{font-family:'IBM Plex Mono',monospace;font-size:9px;color:#334155;margin-bottom:3px;letter-spacing:.08em;text-transform:uppercase;}
-.bbl{padding:9px 13px;border-radius:8px;font-size:12.5px;line-height:1.55;}
-.mr.user .bbl{background:#0c2d48;border:1px solid #1e4a6e;color:#bae6fd;}
-.mr.ai .bbl{background:#111827;border:1px solid #1e293b;color:#e2e8f0;}
-.bbl strong{color:#38bdf8;}
-.bbl code{font-family:'IBM Plex Mono',monospace;font-size:11px;background:#1e293b;padding:1px 5px;border-radius:3px;color:#7dd3fc;}
-.bbl table{border-collapse:collapse;width:100%;margin:6px 0;font-size:11px;font-family:'IBM Plex Mono',monospace;}
-.bbl th{background:#1e293b;color:#38bdf8;padding:4px 8px;border:1px solid #334155;text-align:left;font-size:10px;}
-.bbl td{padding:3px 8px;border:1px solid #1e293b;color:#cbd5e1;}
-.bbl tr:nth-child(even) td{background:#0d1117;}
-.bbl ul,.bbl ol{padding-left:16px;margin:4px 0;}
-.bbl li{margin:2px 0;}
-.thinking{display:flex;gap:4px;padding:10px 13px;}
-.thinking span{width:5px;height:5px;background:#38bdf8;border-radius:50%;opacity:.3;animation:tk 1.2s infinite;}
-.thinking span:nth-child(2){animation-delay:.2s;}
-.thinking span:nth-child(3){animation-delay:.4s;}
-@keyframes tk{0%,100%{opacity:.3;transform:scale(1);}50%{opacity:1;transform:scale(1.4);}}
-#suggestions{padding:0 14px 10px;display:flex;flex-wrap:wrap;gap:5px;flex-shrink:0;}
-.sbtn{background:rgba(14,165,233,.07);border:1px solid rgba(14,165,233,.2);color:#7dd3fc;font-size:10px;padding:4px 10px;border-radius:12px;cursor:pointer;transition:all .15s;font-family:'IBM Plex Sans',sans-serif;}
-.sbtn:hover{background:rgba(14,165,233,.15);border-color:rgba(14,165,233,.4);}
-#input-row{padding:10px 12px;border-top:1px solid #1e293b;display:flex;gap:7px;align-items:center;background:#0f1923;flex-shrink:0;}
-#chat-input{flex:1;background:#0d1117;border:1px solid #1e3a5f;border-radius:6px;color:#e2e8f0;font-family:'IBM Plex Sans',sans-serif;font-size:12px;padding:8px 12px;outline:none;transition:border-color .15s;}
-#chat-input:focus{border-color:#0ea5e9;}
-#chat-input::placeholder{color:#334155;}
-#sbtn2{background:#0ea5e9;border:none;color:#000;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background .15s;letter-spacing:.05em;}
-#sbtn2:hover{background:#38bdf8;}
-#sbtn2:disabled{background:#1e293b;color:#334155;cursor:not-allowed;}
-</style></head><body>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap');
+  * {{ box-sizing:border-box; margin:0; padding:0; }}
 
-<button id="chat-bubble" onclick="togglePanel()">
+  /* Make the iframe itself transparent and full-viewport */
+  html, body {{
+    background: transparent !important;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    /* Pass ALL clicks through to Streamlit beneath */
+    pointer-events: none;
+  }}
+
+  /* Re-enable clicks only on our interactive elements */
+  #pcbubble, #pcpanel {{ pointer-events: all; }}
+
+  #pcbubble {{
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 54px;
+    height: 54px;
+    background: #0ea5e9;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 24px rgba(14,165,233,.55);
+    border: none;
+    transition: all .2s;
+    z-index: 9999;
+  }}
+  #pcbubble:hover {{ background: #38bdf8; transform: scale(1.08); }}
+  #pcbubble svg {{ width:24px; height:24px; fill:white; }}
+  #pcbadge {{
+    position:absolute; top:-2px; right:-2px;
+    width:13px; height:13px;
+    background:#22c55e; border-radius:50%;
+    border:2px solid #060810;
+    animation: bpulse 2s infinite;
+  }}
+  @keyframes bpulse {{ 0%,100%{{opacity:1;transform:scale(1)}} 50%{{opacity:.6;transform:scale(1.2)}} }}
+
+  #pcpanel {{
+    position: fixed;
+    bottom: 94px;
+    right: 28px;
+    width: 390px;
+    height: 530px;
+    background: #0d1117;
+    border: 1px solid #1e3a5f;
+    border-radius: 12px;
+    display: none;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,.8);
+    z-index: 9998;
+    overflow: hidden;
+  }}
+  #pcpanel.open {{ display:flex; animation: pup .2s ease; }}
+  @keyframes pup {{ from{{opacity:0;transform:translateY(10px)}} to{{opacity:1;transform:translateY(0)}} }}
+
+  #pch {{
+    background:#0f1923; padding:12px 16px;
+    display:flex; align-items:center; gap:10px;
+    border-bottom:1px solid #1e3a5f; flex-shrink:0;
+  }}
+  .pcdot {{ width:8px;height:8px;background:#22c55e;border-radius:50%;box-shadow:0 0 6px #22c55e;animation:bpulse 2s infinite;flex-shrink:0; }}
+  #pch h3 {{ font-family:'IBM Plex Mono',monospace;font-size:12px;color:#e2e8f0;font-weight:500;flex:1; }}
+  .pcpill {{ font-family:'IBM Plex Mono',monospace;font-size:9px;background:rgba(14,165,233,.12);color:#38bdf8;padding:2px 8px;border-radius:10px;border:1px solid rgba(14,165,233,.2); }}
+  #pcx {{ background:none;border:none;color:#475569;font-size:20px;cursor:pointer;padding:0 4px;line-height:1; }}
+  #pcx:hover {{ color:#94a3b8; }}
+
+  #pcmsgs {{ flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px; }}
+  #pcmsgs::-webkit-scrollbar {{ width:3px; }}
+  #pcmsgs::-webkit-scrollbar-thumb {{ background:#1e3a5f;border-radius:2px; }}
+
+  .pcrow {{ display:flex;flex-direction:column;max-width:90%;animation:pup .15s ease; }}
+  .pcrow.user {{ align-self:flex-end;align-items:flex-end; }}
+  .pcrow.ai {{ align-self:flex-start;align-items:flex-start; }}
+  .pclbl {{ font-family:'IBM Plex Mono',monospace;font-size:9px;color:#334155;margin-bottom:3px;letter-spacing:.08em;text-transform:uppercase; }}
+  .pcbbl {{ padding:9px 13px;border-radius:8px;font-size:12.5px;line-height:1.55; }}
+  .pcrow.user .pcbbl {{ background:#0c2d48;border:1px solid #1e4a6e;color:#bae6fd; }}
+  .pcrow.ai .pcbbl {{ background:#111827;border:1px solid #1e293b;color:#e2e8f0; }}
+  .pcbbl strong {{ color:#38bdf8; }}
+  .pcbbl code {{ font-family:'IBM Plex Mono',monospace;font-size:11px;background:#1e293b;padding:1px 5px;border-radius:3px;color:#7dd3fc; }}
+  .pcbbl table {{ border-collapse:collapse;width:100%;margin:6px 0;font-size:11px;font-family:'IBM Plex Mono',monospace; }}
+  .pcbbl th {{ background:#1e293b;color:#38bdf8;padding:4px 8px;border:1px solid #334155;text-align:left;font-size:10px; }}
+  .pcbbl td {{ padding:3px 8px;border:1px solid #1e293b;color:#cbd5e1; }}
+  .pcbbl tr:nth-child(even) td {{ background:#0d1117; }}
+  .pcbbl ul,.pcbbl ol {{ padding-left:16px;margin:4px 0; }}
+  .pcbbl li {{ margin:2px 0; }}
+  .pcthink {{ display:flex;gap:4px;padding:10px 13px; }}
+  .pcthink span {{ width:5px;height:5px;background:#38bdf8;border-radius:50%;opacity:.3;animation:ptk 1.2s infinite; }}
+  .pcthink span:nth-child(2) {{ animation-delay:.2s; }}
+  .pcthink span:nth-child(3) {{ animation-delay:.4s; }}
+  @keyframes ptk {{ 0%,100%{{opacity:.3;transform:scale(1)}} 50%{{opacity:1;transform:scale(1.4)}} }}
+
+  #pcsugg {{ padding:0 14px 10px;display:flex;flex-wrap:wrap;gap:5px;flex-shrink:0; }}
+  .pcsbtn {{ background:rgba(14,165,233,.07);border:1px solid rgba(14,165,233,.2);color:#7dd3fc;font-size:10px;padding:4px 10px;border-radius:12px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif; }}
+  .pcsbtn:hover {{ background:rgba(14,165,233,.15); }}
+
+  #pcinrow {{ padding:10px 12px;border-top:1px solid #1e293b;display:flex;gap:7px;align-items:center;background:#0f1923;flex-shrink:0; }}
+  #pcinput {{ flex:1;background:#0d1117;border:1px solid #1e3a5f;border-radius:6px;color:#e2e8f0;font-size:12px;padding:8px 12px;outline:none;font-family:'IBM Plex Sans',sans-serif; }}
+  #pcinput:focus {{ border-color:#0ea5e9; }}
+  #pcinput::placeholder {{ color:#334155; }}
+  #pcsend {{ background:#0ea5e9;border:none;color:#000;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;padding:8px 12px;border-radius:6px;cursor:pointer; }}
+  #pcsend:hover {{ background:#38bdf8; }}
+  #pcsend:disabled {{ background:#1e293b;color:#334155;cursor:not-allowed; }}
+</style>
+</head>
+<body>
+
+<button id="pcbubble" onclick="pctoggle()">
   <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-3 10H7v-2h10v2zm0-3H7V7h10v2z"/></svg>
-  <div id="bubble-badge"></div>
+  <div id="pcbadge"></div>
 </button>
 
-<div id="chat-panel">
-  <div id="panel-header">
-    <div class="hdot"></div>
+<div id="pcpanel">
+  <div id="pch">
+    <div class="pcdot"></div>
     <h3>Pharmacy AI</h3>
-    <span class="cpill" id="ctx-pill">loading...</span>
-    <button id="close-btn" onclick="togglePanel()">×</button>
+    <span class="pcpill">{_ctx}</span>
+    <button id="pcx" onclick="pctoggle()">×</button>
   </div>
-  <div id="messages">
-    <div class="mr ai">
-      <div class="mlbl">pharmacy ai</div>
-      <div class="bbl" id="welcome-msg">Hey — ask me anything about this period, any store, or the network. I have full KPI, wage, roster and staff data.</div>
+  <div id="pcmsgs">
+    <div class="pcrow ai">
+      <div class="pclbl">pharmacy ai</div>
+      <div class="pcbbl">Hey — I can see you're on <strong>{_ctx}</strong>. Ask me anything about this period, any store, or the whole network.</div>
     </div>
   </div>
-  <div id="suggestions">
-    <button class="sbtn" onclick="quickAsk('Which stores are below GP% target this month?')">GP% laggards</button>
-    <button class="sbtn" onclick="quickAsk('Show dispensary safety index for all stores')">Disp safety</button>
-    <button class="sbtn" onclick="quickAsk('Best sales growth vs LY this month?')">Best growth</button>
-    <button class="sbtn" onclick="quickAsk('Which stores are over wage budget?')">Wage pressure</button>
+  <div id="pcsugg">
+    <button class="pcsbtn" onclick="pcq('Which stores are below GP% target this month?')">GP% laggards</button>
+    <button class="pcsbtn" onclick="pcq('Dispensary safety index all stores')">Disp safety</button>
+    <button class="pcsbtn" onclick="pcq('Best sales growth vs LY?')">Best growth</button>
+    <button class="pcsbtn" onclick="pcq('Stores over wage budget?')">Wage pressure</button>
   </div>
-  <div id="input-row">
-    <input id="chat-input" type="text" placeholder="Ask anything…" onkeydown="if(event.key==='Enter')sendMsg()">
-    <button id="sbtn2" onclick="sendMsg()">SEND</button>
+  <div id="pcinrow">
+    <input id="pcinput" type="text" placeholder="Ask about {_ctx}…">
+    <button id="pcsend">SEND</button>
   </div>
 </div>
 
 <script>
-const sc = document.createElement('script');
-sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js';
-document.head.appendChild(sc);
+const s=document.createElement('script');
+s.src='https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js';
+document.head.appendChild(s);
 
-const API_URL = 'http://127.0.0.1:5000/ask';
-let history = [], isOpen = false, suggestionsShown = true;
-let CONTEXT = 'current period';
+const API='http://127.0.0.1:5000/ask';
+const CTX='{_ctx}';
+let hist=[],open=false,suggShown=true;
 
-// Receive context from Streamlit via URL param trick
-window.addEventListener('message', e => {
-  if (e.data && e.data.type === 'pharmacy-context') {
-    CONTEXT = e.data.period;
-    document.getElementById('ctx-pill').textContent = CONTEXT;
-    document.getElementById('welcome-msg').innerHTML =
-      'Hey — I can see you\\'re on <strong>' + CONTEXT + '</strong>. Ask me anything about this period, any store, or the whole network.';
-    document.getElementById('chat-input').placeholder = 'Ask about ' + CONTEXT + '…';
-  }
-});
-
-function togglePanel() {
-  isOpen = !isOpen;
-  document.getElementById('chat-panel').classList.toggle('open', isOpen);
-  if (isOpen) {
-    document.getElementById('bubble-badge').style.display = 'none';
-    document.getElementById('chat-input').focus();
-  }
-}
-
-function quickAsk(q) {
-  document.getElementById('chat-input').value = q;
-  hideSuggestions();
-  sendMsg();
-}
-
-function hideSuggestions() {
-  if (suggestionsShown) {
-    document.getElementById('suggestions').style.display = 'none';
-    suggestionsShown = false;
-  }
-}
-
-async function sendMsg() {
-  const input = document.getElementById('chat-input');
-  const q = input.value.trim();
-  if (!q) return;
-  hideSuggestions();
-  addMsg('user', q);
-  input.value = '';
-  document.getElementById('sbtn2').disabled = true;
-  const thinkEl = addThinking();
-  try {
-    const contextQ = history.length === 0 ? '[Dashboard context: viewing ' + CONTEXT + '] ' + q : q;
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({question: contextQ, history})
-    });
-    const data = await res.json();
-    thinkEl.remove();
-    addMsg('ai', data.answer || 'No response.');
-    history = data.history || history;
-  } catch(err) {
-    thinkEl.remove();
-    addMsg('ai', '⚠️ Cannot reach the API. Make sure the Flask server is running on `localhost:5000`.');
-  }
-  document.getElementById('sbtn2').disabled = false;
-  input.focus();
-}
-
-function addMsg(role, text) {
-  const msgs = document.getElementById('messages');
-  const row = document.createElement('div');
-  row.className = 'mr ' + role;
-  const label = role === 'user' ? 'you' : 'pharmacy ai';
-  const rendered = (typeof marked !== 'undefined') ? marked.parse(text) : text.replace(/\\n/g,'<br>');
-  row.innerHTML = '<div class="mlbl">' + label + '</div><div class="bbl">' + rendered + '</div>';
-  msgs.appendChild(row);
-  msgs.scrollTop = msgs.scrollHeight;
-  return row;
-}
-
-function addThinking() {
-  const msgs = document.getElementById('messages');
-  const row = document.createElement('div');
-  row.className = 'mr ai';
-  row.innerHTML = '<div class="mlbl">pharmacy ai</div><div class="bbl"><div class="thinking"><span></span><span></span><span></span></div></div>';
-  msgs.appendChild(row);
-  msgs.scrollTop = msgs.scrollHeight;
-  return row;
-}
-
-// Send context to iframe on load
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    window.postMessage({type: 'pharmacy-context', period: document.title || 'current period'}, '*');
-  }, 500);
-});
-</script>
-</body></html>
-"""
-
-# Inject context by replacing placeholder — Streamlit renders this server-side
-_chat_html_final = _chat_html.replace(
-    "document.title || 'current period'",
-    f"'{_current_period}'"
-)
-
-components.html(_chat_html_final, height=1, scrolling=False)
-
-# Also inject via markdown for position:fixed to work relative to the actual browser window
-st.markdown(f"""
-<style>
-#pharmacy-chat-bubble {{
-  position: fixed !important;
-  bottom: 24px !important;
-  right: 24px !important;
-  z-index: 999999 !important;
+function pctoggle(){{
+  open=!open;
+  document.getElementById('pcpanel').classList.toggle('open',open);
+  if(open){{ document.getElementById('pcbadge').style.display='none'; document.getElementById('pcinput').focus(); }}
 }}
-</style>
-<script>
-// Inject chat bubble directly into the Streamlit page
-(function() {{
-  if (document.getElementById('pharmacy-chat-bubble')) return;
-  
-  const API_URL = 'http://127.0.0.1:5000/ask';
-  const CONTEXT = '{_current_period}';
-  let history = [], isOpen = false, suggestionsShown = true;
 
-  // Load marked.js
-  const sc = document.createElement('script');
-  sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js';
-  document.head.appendChild(sc);
+function pcq(q){{
+  document.getElementById('pcinput').value=q;
+  pcHideS();
+  pcsend();
+}}
 
-  // Inject styles
-  const style = document.createElement('style');
-  style.textContent = `
-    #pharmacy-chat-bubble {{ position:fixed;bottom:24px;right:24px;width:52px;height:52px;background:#0ea5e9;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(14,165,233,.5);z-index:999999;border:none;transition:all .2s; }}
-    #pharmacy-chat-bubble:hover {{ background:#38bdf8;transform:scale(1.08); }}
-    #pharmacy-chat-bubble svg {{ width:24px;height:24px;fill:white; }}
-    #pchat-badge {{ position:absolute;top:-2px;right:-2px;width:12px;height:12px;background:#22c55e;border-radius:50%;border:2px solid #0f172a;animation:pcbadge 2s infinite; }}
-    @keyframes pcbadge {{ 0%,100%{{opacity:1;transform:scale(1)}} 50%{{opacity:.6;transform:scale(1.2)}} }}
-    #pharmacy-chat-panel {{ position:fixed;bottom:88px;right:24px;width:390px;height:530px;background:#0d1117;border:1px solid #1e3a5f;border-radius:12px;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.7);z-index:999998;overflow:hidden; }}
-    #pharmacy-chat-panel.pcopen {{ display:flex;animation:pcslide .2s ease; }}
-    @keyframes pcslide {{ from{{opacity:0;transform:translateY(10px)}} to{{opacity:1;transform:translateY(0)}} }}
-    #pc-header {{ background:#0f1923;padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #1e3a5f;flex-shrink:0; }}
-    .pc-hdot {{ width:8px;height:8px;background:#22c55e;border-radius:50%;box-shadow:0 0 6px #22c55e;animation:pcbadge 2s infinite;flex-shrink:0; }}
-    #pc-header h3 {{ font-family:'IBM Plex Mono',monospace;font-size:12px;color:#e2e8f0;font-weight:500;flex:1; }}
-    .pc-pill {{ font-family:'IBM Plex Mono',monospace;font-size:9px;background:rgba(14,165,233,.12);color:#38bdf8;padding:2px 8px;border-radius:10px;border:1px solid rgba(14,165,233,.2); }}
-    #pc-close {{ background:none;border:none;color:#475569;font-size:20px;cursor:pointer;padding:0 4px;line-height:1; }}
-    #pc-close:hover {{ color:#94a3b8; }}
-    #pc-messages {{ flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px; }}
-    #pc-messages::-webkit-scrollbar {{ width:3px; }}
-    #pc-messages::-webkit-scrollbar-thumb {{ background:#1e3a5f;border-radius:2px; }}
-    .pc-row {{ display:flex;flex-direction:column;max-width:90%;animation:pcslide .18s ease; }}
-    .pc-row.user {{ align-self:flex-end;align-items:flex-end; }}
-    .pc-row.ai {{ align-self:flex-start;align-items:flex-start; }}
-    .pc-lbl {{ font-family:'IBM Plex Mono',monospace;font-size:9px;color:#334155;margin-bottom:3px;letter-spacing:.08em;text-transform:uppercase; }}
-    .pc-bbl {{ padding:9px 13px;border-radius:8px;font-size:12.5px;line-height:1.55;font-family:'IBM Plex Sans',sans-serif; }}
-    .pc-row.user .pc-bbl {{ background:#0c2d48;border:1px solid #1e4a6e;color:#bae6fd; }}
-    .pc-row.ai .pc-bbl {{ background:#111827;border:1px solid #1e293b;color:#e2e8f0; }}
-    .pc-bbl strong {{ color:#38bdf8; }}
-    .pc-bbl code {{ font-family:'IBM Plex Mono',monospace;font-size:11px;background:#1e293b;padding:1px 5px;border-radius:3px;color:#7dd3fc; }}
-    .pc-bbl table {{ border-collapse:collapse;width:100%;margin:6px 0;font-size:11px;font-family:'IBM Plex Mono',monospace; }}
-    .pc-bbl th {{ background:#1e293b;color:#38bdf8;padding:4px 8px;border:1px solid #334155;text-align:left;font-size:10px; }}
-    .pc-bbl td {{ padding:3px 8px;border:1px solid #1e293b;color:#cbd5e1; }}
-    .pc-bbl tr:nth-child(even) td {{ background:#0d1117; }}
-    .pc-bbl ul,.pc-bbl ol {{ padding-left:16px;margin:4px 0; }}
-    .pc-bbl li {{ margin:2px 0; }}
-    .pc-thinking {{ display:flex;gap:4px;padding:10px 13px; }}
-    .pc-thinking span {{ width:5px;height:5px;background:#38bdf8;border-radius:50%;opacity:.3;animation:pctk 1.2s infinite; }}
-    .pc-thinking span:nth-child(2) {{ animation-delay:.2s; }}
-    .pc-thinking span:nth-child(3) {{ animation-delay:.4s; }}
-    @keyframes pctk {{ 0%,100%{{opacity:.3;transform:scale(1)}} 50%{{opacity:1;transform:scale(1.4)}} }}
-    #pc-suggestions {{ padding:0 14px 10px;display:flex;flex-wrap:wrap;gap:5px;flex-shrink:0; }}
-    .pc-sbtn {{ background:rgba(14,165,233,.07);border:1px solid rgba(14,165,233,.2);color:#7dd3fc;font-size:10px;padding:4px 10px;border-radius:12px;cursor:pointer;transition:all .15s;font-family:'IBM Plex Sans',sans-serif; }}
-    .pc-sbtn:hover {{ background:rgba(14,165,233,.15); }}
-    #pc-input-row {{ padding:10px 12px;border-top:1px solid #1e293b;display:flex;gap:7px;align-items:center;background:#0f1923;flex-shrink:0; }}
-    #pc-input {{ flex:1;background:#0d1117;border:1px solid #1e3a5f;border-radius:6px;color:#e2e8f0;font-size:12px;padding:8px 12px;outline:none;transition:border-color .15s;font-family:'IBM Plex Sans',sans-serif; }}
-    #pc-input:focus {{ border-color:#0ea5e9; }}
-    #pc-input::placeholder {{ color:#334155; }}
-    #pc-send {{ background:#0ea5e9;border:none;color:#000;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;padding:8px 12px;border-radius:6px;cursor:pointer;letter-spacing:.05em; }}
-    #pc-send:hover {{ background:#38bdf8; }}
-    #pc-send:disabled {{ background:#1e293b;color:#334155;cursor:not-allowed; }}
-  `;
-  document.head.appendChild(style);
+function pcHideS(){{
+  if(suggShown){{ document.getElementById('pcsugg').style.display='none'; suggShown=false; }}
+}}
 
-  // Build HTML
-  const wrapper = document.createElement('div');
-  wrapper.innerHTML = `
-    <button id="pharmacy-chat-bubble" onclick="pcToggle()">
-      <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-3 10H7v-2h10v2zm0-3H7V7h10v2z"/></svg>
-      <div id="pchat-badge"></div>
-    </button>
-    <div id="pharmacy-chat-panel">
-      <div id="pc-header">
-        <div class="pc-hdot"></div>
-        <h3>Pharmacy AI</h3>
-        <span class="pc-pill">${{CONTEXT}}</span>
-        <button id="pc-close" onclick="pcToggle()">×</button>
-      </div>
-      <div id="pc-messages">
-        <div class="pc-row ai">
-          <div class="pc-lbl">pharmacy ai</div>
-          <div class="pc-bbl">Hey — I can see you're on <strong>${{CONTEXT}}</strong>. Ask me anything about this period, any store, or the whole network.</div>
-        </div>
-      </div>
-      <div id="pc-suggestions">
-        <button class="pc-sbtn" onclick="pcQuick('Which stores are below GP% target this month?')">GP% laggards</button>
-        <button class="pc-sbtn" onclick="pcQuick('Show dispensary safety index for all stores')">Disp safety</button>
-        <button class="pc-sbtn" onclick="pcQuick('Best sales growth vs LY?')">Best growth</button>
-        <button class="pc-sbtn" onclick="pcQuick('Which stores are over wage budget?')">Wage pressure</button>
-      </div>
-      <div id="pc-input-row">
-        <input id="pc-input" type="text" placeholder="Ask about ${{CONTEXT}}…">
-        <button id="pc-send">SEND</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(wrapper);
+document.getElementById('pcinput').addEventListener('keydown',e=>{{ if(e.key==='Enter') pcsend(); }});
+document.getElementById('pcsend').addEventListener('click', pcsend);
 
-  document.getElementById('pc-input').addEventListener('keydown', e => {{ if(e.key==='Enter') pcSend(); }});
-  document.getElementById('pc-send').addEventListener('click', pcSend);
-
-  window.pcToggle = function() {{
-    isOpen = !isOpen;
-    document.getElementById('pharmacy-chat-panel').classList.toggle('pcopen', isOpen);
-    if (isOpen) {{ document.getElementById('pchat-badge').style.display='none'; document.getElementById('pc-input').focus(); }}
-  }};
-
-  window.pcQuick = function(q) {{
-    document.getElementById('pc-input').value = q;
-    pcHideSuggestions();
-    pcSend();
-  }};
-
-  function pcHideSuggestions() {{
-    if (suggestionsShown) {{ document.getElementById('pc-suggestions').style.display='none'; suggestionsShown=false; }}
+async function pcsend(){{
+  const inp=document.getElementById('pcinput');
+  const q=inp.value.trim(); if(!q) return;
+  pcHideS();
+  pcadd('user',q); inp.value='';
+  document.getElementById('pcsend').disabled=true;
+  const t=pcthink();
+  try{{
+    const cq=hist.length===0?'[Dashboard context: viewing '+CTX+'] '+q:q;
+    const r=await fetch(API,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{question:cq,history:hist}})}});
+    const d=await r.json();
+    t.remove(); pcadd('ai',d.answer||'No response.'); hist=d.history||hist;
+  }}catch(e){{
+    t.remove(); pcadd('ai','⚠️ Cannot reach the API. Make sure Flask is running on localhost:5000.');
   }}
+  document.getElementById('pcsend').disabled=false; inp.focus();
+}}
 
-  async function pcSend() {{
-    const input = document.getElementById('pc-input');
-    const q = input.value.trim();
-    if (!q) return;
-    pcHideSuggestions();
-    pcAddMsg('user', q);
-    input.value = '';
-    document.getElementById('pc-send').disabled = true;
-    const thinkEl = pcAddThinking();
-    try {{
-      const contextQ = history.length === 0 ? '[Dashboard context: viewing ' + CONTEXT + '] ' + q : q;
-      const res = await fetch(API_URL, {{
-        method:'POST', headers:{{'Content-Type':'application/json'}},
-        body: JSON.stringify({{question: contextQ, history}})
-      }});
-      const data = await res.json();
-      thinkEl.remove();
-      pcAddMsg('ai', data.answer || 'No response.');
-      history = data.history || history;
-    }} catch(err) {{
-      thinkEl.remove();
-      pcAddMsg('ai', '⚠️ Cannot reach the API — make sure Flask is running on `localhost:5000`.');
-    }}
-    document.getElementById('pc-send').disabled = false;
-    input.focus();
-  }}
+function pcadd(role,text){{
+  const m=document.getElementById('pcmsgs');
+  const r=document.createElement('div'); r.className='pcrow '+role;
+  const lbl=role==='user'?'you':'pharmacy ai';
+  const html=(typeof marked!=='undefined')?marked.parse(text):text.replace(/\\n/g,'<br>');
+  r.innerHTML='<div class="pclbl">'+lbl+'</div><div class="pcbbl">'+html+'</div>';
+  m.appendChild(r); m.scrollTop=m.scrollHeight; return r;
+}}
 
-  function pcAddMsg(role, text) {{
-    const msgs = document.getElementById('pc-messages');
-    const row = document.createElement('div');
-    row.className = 'pc-row ' + role;
-    const label = role === 'user' ? 'you' : 'pharmacy ai';
-    const rendered = (typeof marked !== 'undefined') ? marked.parse(text) : text.replace(/\\n/g,'<br>');
-    row.innerHTML = '<div class="pc-lbl">' + label + '</div><div class="pc-bbl">' + rendered + '</div>';
-    msgs.appendChild(row);
-    msgs.scrollTop = msgs.scrollHeight;
-    return row;
-  }}
-
-  function pcAddThinking() {{
-    const msgs = document.getElementById('pc-messages');
-    const row = document.createElement('div');
-    row.className = 'pc-row ai';
-    row.innerHTML = '<div class="pc-lbl">pharmacy ai</div><div class="pc-bbl"><div class="pc-thinking"><span></span><span></span><span></span></div></div>';
-    msgs.appendChild(row);
-    msgs.scrollTop = msgs.scrollHeight;
-    return row;
-  }}
-}})();
+function pcthink(){{
+  const m=document.getElementById('pcmsgs');
+  const r=document.createElement('div'); r.className='pcrow ai';
+  r.innerHTML='<div class="pclbl">pharmacy ai</div><div class="pcbbl"><div class="pcthink"><span></span><span></span><span></span></div></div>';
+  m.appendChild(r); m.scrollTop=m.scrollHeight; return r;
+}}
 </script>
-""", unsafe_allow_html=True)
+</body></html>"""
+
+components.html(_widget, height=600, scrolling=False)
